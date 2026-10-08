@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>萬聖節 AR 抓寶大冒險</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- A-Frame & MindAR -->
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+  <style>
+    body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; }
+    .pumpkin-ball {
+      animation: bounce 1.5s infinite alternate;
+    }
+    @keyframes bounce {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-15px); }
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen">
+
+  <!-- 1. 主畫面 (集點卡 & 開始鍵) -->
+  <div id="home-screen" class="p-6 max-w-md mx-auto flex flex-col justify-between min-h-screen">
+    <div>
+      <!-- 標題 -->
+      <div class="text-center my-6">
+        <h1 class="text-3xl font-extrabold text-orange-500 tracking-wider">🎃 萬聖抓寶大冒險 👻</h1>
+        <p class="text-slate-400 text-sm mt-2">尋找 8 個萬聖節圖騰，將小怪物通通收服吧！</p>
+      </div>
+
+      <!-- 集點卡 -->
+      <div class="bg-slate-800 border-2 border-orange-500/50 rounded-2xl p-4 shadow-xl mb-6">
+        <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+          <span class="font-bold text-orange-400">集點卡進度</span>
+          <span id="stamp-count" class="text-sm bg-orange-500/20 text-orange-300 px-3 py-1 rounded-full border border-orange-500/30">0 / 8</span>
+        </div>
+        
+        <!-- 8 個章位 Grid -->
+        <div class="grid grid-cols-4 gap-3" id="stamp-grid">
+          <!-- 由 JS 動態繪製 8 個格子 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 按鈕區 -->
+    <div class="space-y-3 mb-6">
+      <button onclick="startAR()" class="w-full py-4 bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 font-black text-lg rounded-xl shadow-lg shadow-orange-500/30 active:scale-95 transition-all">
+        🚀 開始掃描抓寶
+      </button>
+      <button onclick="openRedeemModal()" class="w-full py-3 bg-slate-800 border border-slate-700 text-slate-300 font-bold rounded-xl active:scale-95 transition-all">
+        🎁 服務台兌換禮物
+      </button>
+    </div>
+  </div>
+
+  <!-- 2. AR 掃描遊戲畫面 -->
+  <div id="ar-screen" class="hidden fixed inset-0 z-50 bg-black">
+    <!-- 頂部提示 -->
+    <div class="absolute top-4 left-4 right-4 z-10 flex justify-between items-center bg-slate-900/80 backdrop-blur border border-slate-700 rounded-xl p-3">
+      <div class="text-xs text-orange-400">請將鏡頭對準現場的 QRcode / 萬聖圖案</div>
+      <button onclick="closeAR()" class="bg-slate-800 text-slate-300 text-xs px-3 py-1.5 rounded-lg border border-slate-600">退出</button>
+    </div>
+
+    <!-- 抓寶按鈕 (投擲南瓜球) -->
+    <div id="catch-ui" class="hidden absolute bottom-10 left-0 right-0 z-10 flex flex-col items-center">
+      <p class="text-amber-300 font-bold mb-2 text-shadow drop-shadow">野生小怪物出現了！</p>
+      <button onclick="throwPumpkinBall()" class="pumpkin-ball w-20 h-20 bg-orange-500 rounded-full border-4 border-slate-900 flex items-center justify-center text-3xl shadow-2xl active:scale-90 transition-transform">
+        🎃
+      </button>
+      <span class="text-xs text-slate-300 mt-2">點擊南瓜球收服怪物</span>
+    </div>
+
+    <!-- MindAR 場景 -->
+    <!-- 注意：實際使用時需填入訓練好的 .mind 檔案路徑 -->
+    <a-scene mindar-image="imageTargetSrc: https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/examples/image-tracking/assets/card-example/card.mind;" color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+      <!-- 假設 Target 0 對應到 怪物 1 -->
+      <a-entity id="target-0" mindar-image-target="targetIndex: 0">
+        <!-- 3D 小怪物 示範 (可用 3D 模型 .gltf 替換) -->
+        <a-sphere id="monster-0" position="0 0 0" radius="0.3" color="#A855F7" animation="property: position; to: 0 0.1 0; dir: alternate; dur: 1000; loop: true">
+          <a-sphere position="-0.1 0.1 0.25" radius="0.05" color="#FFF"></a-sphere>
+          <a-sphere position="0.1 0.1 0.25" radius="0.05" color="#FFF"></a-sphere>
+        </a-sphere>
+      </a-entity>
+    </a-scene>
+  </div>
+
+  <!-- 3. 核銷彈窗 (工作人員專用) -->
+  <div id="redeem-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-sm text-center">
+      <h3 class="text-xl font-bold text-orange-400 mb-2">🎁 兌換小禮物</h3>
+      <p class="text-xs
