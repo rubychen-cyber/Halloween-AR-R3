@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>萬聖抓寶大冒險</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- HTML5 QR Code Scanner -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .pumpkin-bounce {
+      animation: bounce 1.2s infinite alternate ease-in-out;
+    }
+    @keyframes bounce {
+      0% { transform: translateY(0) scale(1); }
+      100% { transform: translateY(-12px) scale(1.05); }
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex flex-col justify-between p-4 selection:bg-orange-500">
+
+  <!-- 1. 主畫面 (集點卡 & 開始鍵) -->
+  <div id="home-screen" class="max-w-md w-full mx-auto flex flex-col justify-between min-h-[90vh]">
+    <div>
+      <!-- 標題 -->
+      <div class="text-center my-6">
+        <h1 class="text-3xl font-extrabold text-orange-500 tracking-wider flex items-center justify-center gap-2">
+          <span>🎃</span> 萬聖抓寶大冒險 <span>👻</span>
+        </h1>
+        <p class="text-slate-400 text-sm mt-2">尋找 8 個萬聖節圖案，將小怪物通通收服吧！</p>
+      </div>
+
+      <!-- 集點卡 -->
+      <div class="bg-slate-800/90 border border-orange-500/40 rounded-2xl p-5 shadow-2xl backdrop-blur mb-6">
+        <div class="flex justify-between items-center mb-4 border-b border-slate-700/80 pb-3">
+          <span class="font-bold text-orange-400 text-base">集點卡進度</span>
+          <span id="stamp-count" class="text-xs bg-orange-500/20 text-orange-300 px-3 py-1 rounded-full border border-orange-500/30 font-bold">0 / 8</span>
+        </div>
+        
+        <!-- 8 個章位 Grid -->
+        <div class="grid grid-cols-4 gap-3" id="stamp-grid">
+          <!-- 由 JS 動態繪製 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 按鈕區 -->
+    <div class="space-y-3 mb-4">
+      <button onclick="startScanner()" class="w-full py-4 bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 font-black text-lg rounded-xl shadow-lg shadow-orange-500/20 active:scale-95 transition-all flex items-center justify-center gap-2">
+        🚀 開始掃描抓寶
+      </button>
+      <button onclick="openRedeemModal()" class="w-full py-3.5 bg-slate-800 border border-slate-700 text-slate-300 font-bold rounded-xl active:scale-95 transition-all">
+        🎁 服務台兌換禮物
+      </button>
+    </div>
+  </div>
+
+  <!-- 2. 相機掃描視窗 -->
+  <div id="scanner-screen" class="hidden fixed inset-0 z-50 bg-black flex flex-col justify-between">
+    <!-- 頂部提示與離開 -->
+    <div class="p-4 bg-slate-900/90 flex justify-between items-center z-10 border-b border-slate-800">
+      <span class="text-xs text-orange-400 font-medium">請對準現場的萬聖節 QR Code</span>
+      <button onclick="stopScanner()" class="bg-slate-800 text-slate-300 text-xs px-3 py-1.5 rounded-lg border border-slate-700">返回首頁</button>
+    </div>
+
+    <!-- 相機畫面區塊 -->
+    <div class="flex-1 flex items-center justify-center relative overflow-hidden bg-black">
+      <div id="reader" class="w-full max-w-sm"></div>
+    </div>
+  </div>
+
+  <!-- 3. 抓寶/收服 彈窗 (掃描成功後觸發) -->
+  <div id="catch-modal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-orange-500/50 rounded-2xl p-6 w-full max-w-sm text-center relative overflow-hidden shadow-2xl">
+      <div class="text-orange-400 font-bold text-sm mb-1">野生的怪物出現了！</div>
+      <h2 id="monster-name" class="text-2xl font-black text-white mb-4">--</h2>
+
+      <!-- 怪物 Emoji / 圖像 -->
+      <div id="monster-icon" class="text-7xl my-6 pumpkin-bounce">👻</div>
+
+      <!-- 丟南瓜球收服按鈕 -->
+      <button onclick="captureMonster()" class="w-full py-3.5 bg-orange-500 hover:bg-orange-400 text-slate-950 font-black rounded-xl text-lg shadow-lg shadow-orange-500/30 active:scale-95 transition-all">
+        🎃 丟出南瓜球收服！
+      </button>
+    </div>
+  </div>
+
+  <!-- 4. 服務台核銷彈窗 -->
+  <div id="redeem-modal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-sm text-center">
+      <h3 class="text-xl font-bold text-orange-400 mb-2">🎁 兌換小禮物</h3>
+      <p class="text-xs text-slate-400 mb-4">請向服務台工作人員出示此畫面，並由工作人員輸入核銷密碼。</p>
+
+      <div class="mb-6">
+        <div id="redeem-status" class="text-sm font-semibold mb-3"></div>
+        <input type="password" id="passcode-input" placeholder="輸入核銷密碼" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-center text-lg tracking-widest text-orange-400 focus:outline-none focus:border-orange-500">
+      </div>
+
+      <div class="flex gap-3">
+        <button onclick="closeRedeemModal()" class="flex-1 py-2.5 bg-slate-700 text-slate-300 font-bold rounded-lg text-sm">取消</button>
+        <button onclick="verifyPasscode()" class="flex-1 py-2.5 bg-orange-500 text-slate-950 font-bold rounded-lg text-sm">確認核銷</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const TOTAL_MONSTERS = 8;
+    const SECRET_PASSCODE = "8888"; // 工作人員預設核銷密碼
+    
+    // 8 隻怪物的設定檔 (包含對應的 QR Code 內容標籤)
+    const MONSTERS = [
+      { id: "M1", name: "搗蛋南瓜怪", icon: "🎃" },
+      { id: "M2", name: "漂浮小幽靈", icon: "👻" },
+      { id: "M3", name: "暗夜吸血鬼", icon: "🦇" },
+      { id: "M4", name: "魔法黑貓咪", icon: "🐱" },
+      { id: "M5", name: "跳跳骷髏人", icon: "💀" },
+      { id: "M6", name: "騎掃帚巫師", icon: "🧙‍♀️" },
+      { id: "M7", name: "千年木乃伊", icon: "🧟" },
+      { id: "M8", name: "織網蜘蛛怪", icon: "🕷️" }
+    ];
+
+    let caughtMonsters = JSON.parse(localStorage.getItem('halloween_caught')) || [];
+    let isRedeemed = localStorage.getItem('halloween_redeemed') === 'true';
+    let html5QrcodeScanner = null;
+    let pendingMonster = null;
+
+    // 渲染集點卡畫面
+    function renderStampCard() {
+      const grid = document.getElementById('stamp-grid');
+      const countEl = document.getElementById('stamp-count');
+      grid.innerHTML = '';
+
+      countEl.innerText = `${caughtMonsters.length} /${TOTAL_MONSTERS}`;
+
+      MONSTERS.forEach((m, idx) => {
+        const isCaught = caughtMonsters.includes(m.id);
+        const card = document.createElement('div');
+        card.className = `aspect-square rounded-xl flex flex-col items-center justify-center p-2 text-center border ${
+          isCaught 
+            ? 'bg-orange-500/20 border-orange-500/60 text-orange-300' 
+            : 'bg-slate-900/60 border-slate-700/60 text-slate-600'
+        }`;
+        
+        card.innerHTML = `
+          <span class="text-2xl mb-1">${isCaught ? m.icon : '🔒'}</span>
+          <span class="text-[10px] font-bold truncate
